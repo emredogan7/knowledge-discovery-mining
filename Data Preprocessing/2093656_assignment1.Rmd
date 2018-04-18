@@ -1,0 +1,683 @@
+---
+author: "Emre Dogan"
+date: "3/25/2018"
+output: html_document
+---
+
+
+# IS580, Knowledge, Discovery and Mining-Assignment 1
+
+In this assignment, the purpose is to characterize and understand a dataset by using descriptive statistics and visualization techniques as well as to handle the problems present in the data set such as missing value, noise and redundancy by using some preprocessing techniques.
+
+First, the working directory will be set and necessary packages and our data will be included.
+
+```{r  results='hide', message=FALSE, warning=FALSE}
+setwd("/Users/emre/Desktop/Assignment1") # set working directory
+#check if package is already installed. If not, install the package
+if("e1071" %in% rownames(installed.packages())==FALSE){
+  install.packages("e1071")
+}
+
+#load the package
+require("e1071")
+require(foreign)
+require(ggplot2)
+library(gridExtra)
+library(knitr)
+
+data_original=read.csv("./assignment1.csv")
+data_missing1=read.csv("./assignment1_missing1.csv")
+data_missing2=read.csv("./assignment1_missing2.csv")
+```
+
+# PART A
+
+## A-1. Summarize the data
+After importing data and packages, we can begin analyzing our data by `summary()` command.
+
+```{r   message=FALSE, warning=FALSE}
+options(knitr.kable.NA = '')
+#summary(data_original)
+kable(summary(data_original)) 
+```
+
+As it can be seen in the summary, 
+
+* The attributes A1, A9, A10, A12 and A16 have discrete binary distribution.  
+
+* The attributes A2, A3, A8, A11, A14 and A15 have continuous numeric distribution.
+
+* The other attributes have triple or more discrete distribution.
+
+## A-2. Visualize the distributions of the numeric attributes
+
+The histogram plots of the numerical attributes are provided below.
+```{r  results='hide', message=FALSE, warning=FALSE}
+h2 <- qplot(data_original$A2,geom="histogram",main = "Histogram for A2",  fill=I("gray"), col=I("darkblue"))
+h3 <- qplot(data_original$A3,geom="histogram",main = "Histogram for A3",  fill=I("gray"), col=I("darkblue"))
+h8 <- qplot(data_original$A8,geom="histogram",main = "Histogram for A8",  fill=I("gray"), col=I("darkblue"))
+h11 <- qplot(data_original$A11,geom="histogram",main = "Histogram for A11",  fill=I("gray"), col=I("darkblue"))
+h14 <- qplot(data_original$A14,geom="histogram",main = "Histogram for A14",  fill=I("gray"), col=I("darkblue"))
+h15 <- qplot(data_original$A15,geom="histogram",main = "Histogram for A15",  fill=I("gray"), col=I("darkblue"))
+grid.arrange(h2, h3, h8, h11, h14, h15, ncol=2,top="Main Title")
+
+```
+
+To be able to comment whether they are Gaussian or not, I plotted histograms of these attributes with a representetive Gaussian distribution. Each distribution is crated with respect to the mean and standard deviation of the original attribute datasets.
+
+```{r  results='hide', message=FALSE, warning=FALSE}
+
+par(mfrow=c(3,2))
+
+hist(data_original$A2, freq=F, breaks=25)
+#plot(density(data_original$A2), col="red")
+lines(seq(-25, 90, by=.5), dnorm(seq(-25, 90, by=.5),
+                                 mean(data_original$A2), sd(data_original$A2)), col="blue")
+
+
+hist(data_original$A3, freq=F, breaks=25)
+#plot(density(data_original$A3), col="red")
+lines(seq(-25, 90, by=.5), dnorm(seq(-25, 90, by=.5),
+                                 mean(data_original$A3), sd(data_original$A3)), col="blue")
+
+hist(data_original$A8, freq=F, breaks=25)
+lines(seq(-25, 40, by=.5), dnorm(seq(-25, 40, by=.5),
+                                 mean(data_original$A8), sd(data_original$A8)), col="blue")
+
+hist(data_original$A11, freq=F, breaks=25)
+lines(seq(-25, 50, by=.5), dnorm(seq(-25, 50, by=.5),
+                                 mean(data_original$A11), sd(data_original$A11)), col="blue")
+
+hist(data_original$A14, freq=F, breaks=25)
+lines(seq(-25, 1500, by=.5), dnorm(seq(-25, 1500, by=.5),
+                                 mean(data_original$A14), sd(data_original$A14)), col="blue")
+
+hist(data_original$A15, freq=F, breaks=25)
+lines(seq(0, 40000, by=.5), dnorm(seq(0, 40000, by=.5),
+                                 mean(data_original$A15), sd(data_original$A15)), col="blue")
+
+
+```
+
+From these plots, it is obvious that A2 and A14 are the attributes having a distribution closest to the Gaussian one. The others don't show a Gaussian Distribution characteristic.
+
+Besides this method,  we can check whether the data is Normal or not by another method, plotting Q-Q Plot. If the plot is not distributed over a 45 degree line, then it is not normal. 
+
+```{r  results='hide', message=FALSE, warning=FALSE}
+par(mfrow=c(2,3))
+qqnorm(data_original$A2); qqline(data_original$A2)
+qqnorm(data_original$A3); qqline(data_original$A3)
+qqnorm(data_original$A8); qqline(data_original$A8)
+qqnorm(data_original$A11); qqline(data_original$A11)
+qqnorm(data_original$A14); qqline(data_original$A14)
+qqnorm(data_original$A15); qqline(data_original$A15)
+
+```
+
+From these plots, it is obvious that none of the attributes are Gaussian distributed. But A2 and A14 attributes show a close characteristic except some outliers.
+
+As it is seen that the attributes does not show a characteristic close to Gaussian where we deal with outliers. So we need to find descriptive location measures for each of these attributes.
+
+## A-3. Descriptive Location Measures for Each of the Numerical Attributes
+
+### Control Tendency
+
+We already achieved mean and median values of each attributes with summary() command.
+Besides that, geometric mean is an important measure of the central tendency.
+
+```{r   message=FALSE, warning=FALSE}
+geomean_a2=exp(mean(log(data_original$A2)))	
+geomean_a3=exp(mean(log(data_original$A3)))	
+geomean_a8=exp(mean(log(data_original$A8)))	
+geomean_a11=exp(mean(log(data_original$A11)))	
+geomean_a14=exp(mean(log(data_original$A14)))	
+geomean_a15=exp(mean(log(data_original$A15)))	
+geomean_vector <- c(geomean_a2, geomean_a3, geomean_a8, geomean_a11, geomean_a14, geomean_a15)
+geomean_vector <- data.frame(geomean_vector)
+row.names(geomean_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(geomean_vector,row.names = TRUE)
+```
+But in this example it does not mean anything as all attributes except A2 has a 0 value and this leads the geometric mean to be equal to zero.
+
+## Dispersion
+Besides the central tendency, the fact that how closely the data fall about the center is another issue. We need to figure out the spread pattern around the center.
+
+* Range:
+```{r   message=FALSE, warning=FALSE}
+range_a2=max(data_original$A2, na.rm = TRUE)-min(data_original$A2, na.rm = TRUE)
+range_a3=max(data_original$A3, na.rm = TRUE)-min(data_original$A3, na.rm = TRUE)
+range_a8=max(data_original$A8, na.rm = TRUE)-min(data_original$A8, na.rm = TRUE)
+range_a11=max(data_original$A11, na.rm = TRUE)-min(data_original$A11, na.rm = TRUE)
+range_a14=max(data_original$A14, na.rm = TRUE)-min(data_original$A14, na.rm = TRUE)
+range_a15=max(data_original$A15, na.rm = TRUE)-min(data_original$A15, na.rm = TRUE)
+range_vector <- c(range_a2, range_a3, range_a8, range_a11, range_a14, range_a15)
+range_vector <- data.frame(range_vector)
+row.names(range_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(range_vector, row.names = TRUE)
+```
+
+It can be seen that range values in A14 and A15 are very big numbers and may become a problem in analyzing the data.
+
+
+* Interquantile Range 
+```{r   message=FALSE, warning=FALSE}
+iqc_a2=IQR(data_original$A2)
+iqc_a3=IQR(data_original$A3)
+iqc_a8=IQR(data_original$A8)
+iqc_a11=IQR(data_original$A11)
+iqc_a14=IQR(data_original$A14)
+iqc_a15=IQR(data_original$A15)
+
+iqr_vector <- c(iqc_a2, iqc_a3, iqc_a8, iqc_a11, iqc_a14, iqc_a15)
+iqr_vector <- data.frame(iqr_vector)
+row.names(iqr_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(iqr_vector, row.names = TRUE)
+```
+
+* Variance
+```{r   message=FALSE, warning=FALSE}
+var_a2=var(data_original$A2)
+var_a3=var(data_original$A3)
+var_a8=var(data_original$A8)
+var_a11=var(data_original$A11)
+var_a14=var(data_original$A14)
+var_a15=var(data_original$A15)
+var_vector <- c(var_a2, var_a3, var_a8, var_a11, var_a14, var_a15)
+var_vector <- data.frame(var_vector)
+row.names(var_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(var_vector, row.names = TRUE)
+```
+
+Variance in A14 and A15 attributes are very big numbers and gives some idea on the dispersed characteristic of these attributes.
+
+* Standard Deviation
+```{r   message=FALSE, warning=FALSE}
+sd_a2=sd(data_original$A2)
+sd_a3=sd(data_original$A3)
+sd_a8=sd(data_original$A8)
+sd_a11=sd(data_original$A11)
+sd_a14=sd(data_original$A14)
+sd_a15=sd(data_original$A15)
+sd_vector <- c(sd_a2, sd_a3, sd_a8, sd_a11, sd_a14, sd_a15)
+sd_vector <- data.frame(sd_vector)
+row.names(sd_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(sd_vector, row.names = TRUE)
+```
+
+* Coefficient of Variance
+```{r   message=FALSE, warning=FALSE}
+CV_a2=sd(data_original$A2, na.rm=TRUE)/mean(data_original$A2, na.rm=TRUE)*100
+CV_a3=sd(data_original$A3, na.rm=TRUE)/mean(data_original$A3, na.rm=TRUE)*100
+CV_a8=sd(data_original$A8, na.rm=TRUE)/mean(data_original$A8, na.rm=TRUE)*100
+CV_a11=sd(data_original$A11, na.rm=TRUE)/mean(data_original$A11, na.rm=TRUE)*100
+CV_a14=sd(data_original$A14, na.rm=TRUE)/mean(data_original$A14, na.rm=TRUE)*100
+CV_a15=sd(data_original$A15, na.rm=TRUE)/mean(data_original$A15, na.rm=TRUE)*100
+CV_vector <- c(CV_a2, CV_a3, CV_a8, CV_a11, CV_a14, CV_a15)
+CV_vector <- data.frame(CV_vector)
+row.names(CV_vector) <- c("A2", "A3", "A8", "A11", "A14", "A15")
+kable(CV_vector, row.names = TRUE)
+
+```
+
+Coefficient of variance is a better parameter to see the behaviour of the data. In the previous parameters, A14 and A15 seemed to have bad attributes. But It can be seen that A8 and A11 also have some bad attributes. 
+
+
+## A-4. Dealing with Outliers
+To be able to have an idea about the outliers, we should plot boxplots of the numerical attributes.
+```{r   message=FALSE, warning=FALSE}
+par(mfrow=c(2,3))
+boxplot(data_original$A2,main="Boxplot of A2 Attribute")
+boxplot(data_original$A3,main="Boxplot of A3 Attribute")
+boxplot(data_original$A8,main="Boxplot of A8 Attribute")
+boxplot(data_original$A11,main="Boxplot of A11 Attribute")
+boxplot(data_original$A14,main="Boxplot of A14 Attribute")
+boxplot(data_original$A15,main="Boxplot of A15 Attribute")
+```
+
+When we observe all boxplots, there are outliers in all attributes. 
+There are several ways to deal with these outliers,
+- We can filter the data so that undesired part of data can be discarded. 
+- We can remove or change the values of outliers. For example, 'trimmed mean' parameter is defined as the calculation of the mean after discarding given parts of a probability distribution or sample at the high and low end, and typically discarding an equal amount of both. By doing so, we are actually neglecting the outlier values while calculation the mean value.
+
+## A-5. Density Plots
+
+```{r   message=FALSE, warning=FALSE}
+
+par(mfrow=c(2,3))
+d2 <- density(data_original$A2) 
+plot(d2) 
+d3 <- density(data_original$A3) 
+plot(d3) 
+d8 <- density(data_original$A8) 
+plot(d8) 
+d11 <- density(data_original$A11) 
+plot(d11) 
+d14 <- density(data_original$A14) 
+plot(d14) 
+d15 <- density(data_original$A15) 
+plot(d15) 
+```
+
+
+## A-6. Correlation between attributes
+First, all numeric attributes are brought together so that we can investigate the correlation between them.
+
+```{r   message=FALSE, warning=FALSE}
+options(knitr.kable.NA = '')
+NUM=data.frame(data_original[2:3],data_original[8],data_original[11],data_original[14:15])
+
+# correlations/covariance
+kable(cov(NUM))
+kable(cor(NUM))
+```
+
+The correlation relation of each pair of attributes can be seen from tha table above. Some pairs have positive correlation whereas some others have negative correlation.
+
+
+## A-7. Normalization of A14 and A15
+To be able to normalize A14 and 15 attributes, we should firstly investigate their characterisctic by descriptive location measures and histogram plots.
+
+### For A14
+The data shows a positive skewness attribute. Its median value (160.0) is smaller than the mean value (180.4). Also, this characteristic can be observed from its histogram plot. To be able normalize this attribute, we have 3 options,
+* Min-Max Scaling
+* Normalization by Z-Score
+* log10 Transformation
+
+In A14 Attribute, There is a sharp difference between 3rd Quartile and the Maximum value. This illustrates the non-normality of the attribute. 
+```{r   message=FALSE, warning=FALSE}
+
+dat14 <- data.frame(data_original$A14)
+dat_m14 <- data.matrix(dat14, rownames.force = NA)
+zVar_A14 <- (dat_m14 - mean(dat_m14)) / sd(dat_m14)
+logTr_A14 <- log10(data_original$A14+1)
+
+par(mfrow=c(1,2))
+hist(logTr_A14, main = "Log Transformation ")
+hist(zVar_A14, main = "Z-Score Normalized ")
+
+```
+
+As we know that the attribute A14 is not a Gaussian Distribution, then the Z-tansformation is not suitable for this situation. Z transform is only suitable if the data is roughly symmetric. 
+
+So, I applied log10 transformation for normalizing A14 attribute. log10 transformation is more suitable when the data distribution is asymmetric and skewed as in the case of A14.
+
+Finally, I saved the log10 transformed case of A14 as its normalized version.
+
+
+```{r   message=FALSE, warning=FALSE}
+
+data_original$A14Norm <- logTr_A14
+```
+
+
+
+### For A15
+A15 attribute shows a much sharper skewness characteristic than A14. Its median value is equal to 5 where its mean equals to 1014.
+
+```{r   message=FALSE, warning=FALSE}
+
+dat15 <- data.frame(data_original$A15)
+dat_m15 <- data.matrix(dat15, rownames.force = NA)
+zVar_A15 <- (dat_m15 - mean(dat_m15)) / sd(dat_m15)
+logTr_A15 <- log10(data_original$A15+1)
+
+par(mfrow=c(1,2))
+hist(logTr_A15, main = "Log Transformation ")
+hist(zVar_A15, main = "Z-Score Normalized ")
+
+
+```
+
+As it can be seen from the comparison of Original and Normalized A15 attributes, Z-Score normalization operation cannot handle the high skewness in A15 Attribute whereas log10 transformation results with a better distributed data. 
+
+So, I saved the log10 transformed case of A15 as its normalized version.
+
+```{r   message=FALSE, warning=FALSE}
+
+data_original$A15Norm <- logTr_A15
+```
+
+
+
+## A-8. Discretization of A3 and A11
+
+For the discretization, I applied the binning discretization methods as it is the most typical & applicable discretization method.
+Binning discretization has some types like
+
+    + Equal Interval
+    
+    + Equal Frequency
+    
+    + K-Mean 
+    
+
+### Discretizing A3 Attribute
+For A3 attribute, I applied 3 different discretization methods 
+
+    + Equal Interval
+    
+    + Equal Frequency
+    
+    + K-Means
+    
+All the histogram outputs of 3 discretization methods can be seen below.
+
+```{r   message=FALSE, warning=FALSE}
+
+if  ("arules"  %in%  rownames(installed.packages())  ==  FALSE){
+  install.packages("arules")
+}
+require(arules)
+
+
+df_data=data.frame(data_original)
+
+a3_discrete_interval <- NULL
+d3_int <- discretize(df_data[,3], method = "interval", categories =100)
+a3_discrete_interval <- cbind(a3_discrete_interval, d3_int) 
+
+a3_discrete_freq <- NULL
+d3_freq <- discretize(df_data[,3],"frequency" ,categories =30) 
+a3_discrete_freq <- cbind(a3_discrete_freq, d3_freq)
+
+a3_discrete_cluster <- NULL
+d3_cluster <- discretize(df_data[,3], method = "cluster", categories =100) 
+a3_discrete_cluster <- cbind(a3_discrete_cluster, d3_cluster)
+
+h3 <- qplot(data_original$A3,geom="histogram",binwidth=1, main = "Histogram for A3",  fill=I("gray"), col=I("darkblue"))
+h3_interval <- qplot(a3_discrete_interval,geom="histogram",binwidth=4, main = "Equal interval discretization",  fill=I("gray"), col=I("darkblue"))
+h3_freq <- qplot(a3_discrete_freq,geom="histogram",binwidth=1, main = "Equal frequency discretization",  fill=I("gray"), col=I("darkblue"))
+h3_cluster <- qplot(a3_discrete_cluster,geom="histogram",binwidth=4, main = " K-Means discretization",  fill=I("gray"), col=I("darkblue"))
+grid.arrange(h3, h3_interval,h3_freq,h3_cluster, ncol=2,top="3 Types of Discretization")
+
+
+
+```
+
+When all discretization outputs are observed, it is seen that equal interval discretization and K-Means discretization does not change the characteristic of the attribute siginficantly which is far away from the Gaussian Distribution. 
+
+But in equal frequency discretization, a significant improvement is valid in the distribution of data. 
+
+So, I am saving the equal frequency discretized version of the A3 as a new attribute.
+new attributes.
+
+```{r   message=FALSE, warning=FALSE}
+data_original$A3Disc <- a3_discrete_freq
+```
+
+### Discretizing A11 Attribute
+For A11 attribute, I applied 3 different discretization methods 
+
+    + Equal Interval
+
+    + Equal Frequency
+
+    + K-Nearest
+
+All the histogram outputs of 3 discretization methods can be seen below.
+
+```{r   message=FALSE, warning=FALSE}
+if  ("arules"  %in%  rownames(installed.packages())  ==  FALSE){
+  install.packages("arules")
+}
+require(arules)
+
+
+df_data=data.frame(data_original)
+
+a11_discrete_interval <- NULL
+d11_int <- discretize(df_data[,11], method = "interval", categories =100) 
+a11_discrete_interval <- cbind(a11_discrete_interval, d11_int) 
+
+ a11_discrete_freq <- NULL
+d11_freq <- discretize(df_data[,8], method = "interval", categories =100) 
+a11_discrete_freq <- cbind(a11_discrete_freq, d11_freq)
+
+a11_discrete_cluster <- NULL
+d11_cluster <- discretize(df_data[,11], method = "interval", categories =100) 
+a11_discrete_cluster <- cbind(a11_discrete_cluster, d11_cluster)
+
+h11 <- qplot(data_original$A11,geom="histogram",binwidth=1,main = "Histogram for A11",  fill=I("gray"), col=I("darkblue"))
+h11_interval <- qplot(a11_discrete_interval,geom="histogram",binwidth=4, main = "Equal interval discretization",  fill=I("gray"), col=I("darkblue"))
+h11_freq <- qplot(a11_discrete_freq,geom="histogram", main = "Equal frequency discretization",  fill=I("gray"), col=I("darkblue"))
+h11_cluster <- qplot(a11_discrete_cluster,geom="histogram", main = "K-Means discretization",  fill=I("gray"), col=I("darkblue"))
+grid.arrange(h11, h11_interval,h11_freq, h11_cluster, ncol=2,top="3 Types of Discretization")
+
+
+```
+
+When all discretization outputs of A11 attribute are observed, it is seen that equal interval discretization and K-Means discretization does not change the characteristic of the attribute siginficantly which is far away from the Gaussian Distribution. 
+
+But in equal frequency discretization, a significant improvement is valid in the distribution of data. 
+
+So, I am saving the equal frequency discretized version of the A11 as a new attribute.
+
+```{r   message=FALSE, warning=FALSE}
+data_original$A11Disc <- a11_discrete_freq
+```
+
+
+After all the modifications are done, I am saving the new .csv file to the file "assignment1_manipulated.csv".
+
+## A-9. Saving the Final Data
+
+```{r   message=FALSE, warning=FALSE}
+
+write.csv(data_original, file = "2093656_assignment1.csv") 
+
+data_original=read.csv("./assignment1.csv") # reseting the original data.
+
+
+```
+
+
+
+# PART B
+
+```{r   message=FALSE, warning=FALSE}
+
+kable(summary(data_original)) 
+```
+
+
+```{r   message=FALSE, warning=FALSE}
+
+kable(summary(data_missing1))
+
+```
+
+The only difference of the dataset is that there are 65 NA's in the A2 attribute.
+
+## B-1. Listwise Deletion
+
+```{r   message=FALSE, warning=FALSE}
+
+data_missing1_listwise <- na.omit(data_missing1)
+
+```
+
+ After the listwise deletion operation, it is observed that most of the descriptive statistics change. 
+ 
+ This was expected because we do not only delete NA valued A2 attributes. Instead,  we are deleting all attributes corresponding to these dataset elements. 
+ 
+ For example, in the 14 attribute, quartiles, mean and median values increase slightly whereas these statistics decrease slightly in the A8 attribute. Increase & Decrease in these values depend on the values of the attributes in deleted elements.
+ 
+```{r   results='hide', message=FALSE, warning=FALSE}
+
+summary(lm(A2 ~ A1 + A3 + A4 +A5 + A6 +A7 + A8 + A9 + A10 + A11 + A12 + A13 + A14 + A15 + A16, data = data_original))
+summary(lm(A2 ~ A1 + A3 + A4 +A5 + A6 +A7 + A8 + A9 + A10 + A11 + A12 + A13 + A14 + A15 + A16, data = data_missing1))
+
+```
+ 
+## B-2. Fill the missing values with Amelia
+ 
+```{r   message=FALSE, warning=FALSE}
+
+require(Amelia)
+a.out = amelia(data_missing1, m = 5, idvars = c("A1","A5","A6","A4", "A7", "A9","A10","A12","A13","A16"))
+
+compare.density(a.out, var = "A2")
+  
+
+```
+
+Mean imputations and observed values does not fit 100%, but with the attributes and their relations that we have, it is the best option we have. There is a significant gap around the center but it was expecte due to the original data's skewness.
+
+```{r   message=FALSE, warning=FALSE}
+
+overimpute(a.out, var = "A2")
+
+  
+
+```
+
+
+
+In the plot above, imputed values are compared with the observed values in attribute A2. For an imputation to be succesful, the imputations must be matching with the line. In our case, the imputations are usually matched with the line.
+
+
+## B-3. Replace the missing values with the average of imputations
+
+```{r   message=FALSE, warning=FALSE}
+
+imputedA2 <- data.frame(a.out$imputations[[1]]$A2,a.out$imputations[[2]]$A2,a.out$imputations[[3]]$A2,a.out$imputations[[4]]$A2,a.out$imputations[[5]]$A2)
+#imputedA2Avg <- rowMeans(imputedA2)
+imputedA2Avg <- rowMeans(imputedA2[, -ncol(imputedA2)])
+
+data_missing1$A2=imputedA2Avg
+
+#imputedA2AvgValue <- mean(imputedA2Avg[is.na(data_missing1$A2)])
+#data_missing1$A2[is.na(data_missing1$A2)] <- imputedA2AvgValue
+
+write.csv(data_missing1, file = "2093656_assignment1_missing1.csv") 
+
+data_original=read.csv("./assignment1.csv") # reseting the original data.
+
+
+
+```
+
+
+After obtaining the imputations, I took the mean of them as rows. Then, each NA element in the attribute of A2 is replaced with its corresponding mean of imputations. 
+
+
+# PART C
+
+```{r   message=FALSE, warning=FALSE}
+
+kable(summary(data_original)) 
+```
+
+
+```{r   message=FALSE, warning=FALSE}
+
+kable(summary(data_missing2))
+
+```
+
+The only difference of the dataset is that there are 130 NA's in the A8 attribute.
+
+## C-1. Listwise Deletion
+
+```{r   message=FALSE, warning=FALSE}
+
+data_missing2_listwise <- na.omit(data_missing2)
+
+```
+
+ After the listwise deletion operation, it is observed that most of the descriptive statistics change. 
+ 
+ This was expected because we do not only delete NA valued A8 attributes. Instead,  we are deleting all attributes corresponding to these dataset elements. 
+ 
+ For example, in the A2 attribute, quartiles, mean and median values increase slightly whereas these statistics decrease slightly in the A8 attribute. Increase & Decrease in these values depend on the values of the attributes in deleted elements.
+ 
+## C-2. Fill the missing values with mean of the original data
+ 
+```{r   message=FALSE, warning=FALSE}
+frameA8 <- data.frame(data_missing2_listwise$A8)
+AvgFrameA8 <- mean(frameA8[,1])
+data_missing2_mean <- data_missing2
+data_missing2_mean$A8[is.na(data_missing2$A8)] <- AvgFrameA8
+
+kable(summary(data_missing2_mean))
+
+
+
+par(mfrow=c(1,2))
+hist(data_missing2$A8, col="grey", border="white")
+hist(data_missing2_mean$A8, col="green", border="white")
+
+
+
+```
+
+## C-3. Fill the missing values with Amelia
+```{r   message=FALSE, warning=FALSE}
+
+require(Amelia)
+a.out = amelia(data_missing2, m = 5, idvars = c("A1","A5","A6","A4", "A7", "A9","A10","A12","A13","A16"))
+
+compare.density(a.out, var = "A8")
+  
+
+```
+
+Mean imputations and observed values does not fit 100%, but with the attributes and their relations that we have, it is the best option we have. There is a significant gap around the center but it was expecte due to the original data's skewness.
+
+```{r   message=FALSE, warning=FALSE}
+
+overimpute(a.out, var = "A8")
+
+  
+
+```
+
+
+In the plot above, imputed values are compared with the observed values in attribute A8. For an imputation to be succesful, the imputations must be matching with the line. In our case, the imputations are matched with the line at the beginning. But there is a great non-matching issue after some point. This situation is due to the non-normality of the distribution of A8 attribute.
+
+
+### Replace the missing values with the average of imputations
+
+```{r   message=FALSE, warning=FALSE}
+
+imputedA8 <- data.frame(a.out$imputations[[1]]$A8,a.out$imputations[[2]]$A8,a.out$imputations[[3]]$A8,a.out$imputations[[4]]$A8,a.out$imputations[[5]]$A8)
+
+imputedA8Avg <- rowMeans(imputedA8[, -ncol(imputedA8)])
+
+data_missing2_amelia <- data_missing2
+data_missing2_amelia$A8=imputedA8Avg
+
+
+```
+
+
+After obtaining the imputations, I took the mean of them as rows. Then, each NA element in the attribute of A8 is replaced with its corresponding mean of imputations. 
+
+### Comparing the Original Dataset, Mean Imputed Dataset, Amelia Imputed Dataset
+
+
+```{r   message=FALSE, warning=FALSE}
+
+par(mfrow=c(1,3))
+hist(data_missing2$A8, col="grey", border="white")
+hist(data_missing2_mean$A8, col="grey", border="white")
+hist(data_missing2_amelia$A8, col="grey", border="white")
+
+
+```
+
+When these 3 histograms are observed, it is seen that both mean imputed and amelia imputed A8 attributes become better such that they are closer to a Gaussian Distibution. 
+
+But in the amelia imputation, the skewness decreases more and even some values move to the left of the peak value in the histogram. 
+
+So, I can say that Amelia Imputed Attribute is more succesful than the original attribute distribution and the Mean Imputed one.
+
+### Saving the Final Dataset
+
+```{r   message=FALSE, warning=FALSE}
+
+
+write.csv(data_missing2_amelia, file = "2093656_assignment1_missing2.csv") 
+
+```
+
