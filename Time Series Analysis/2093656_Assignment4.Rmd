@@ -1,0 +1,213 @@
+---
+title: "2093656_Assignment4"
+author: "Emre Dogan"
+date: "5/19/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# IS580, Knowledge, Discovery and Mining-Assignment 4
+
+In this homework, Elastic Nets, Time Series and Model Selection will be handled.
+
+## Part A.1
+
+First, the working directory will be set and necessary packages and our data will be included.
+
+```{r  results='hide', message=FALSE, warning=FALSE}
+setwd("/Users/emre/Desktop/Assignment 4")     # set working directory
+
+#check if package is already installed. If not, install the package
+if("mRMRe" %in% rownames(installed.packages())==FALSE){
+ install.packages("mRMRe")
+}
+if("FSelector" %in% rownames(installed.packages())==FALSE){
+ install.packages("FSelector")
+}
+if("discretization" %in% rownames(installed.packages())==FALSE){
+ install.packages("discretization")
+}
+if("arules" %in% rownames(installed.packages())==FALSE){
+ install.packages("arules")
+}
+if("arulesViz" %in% rownames(installed.packages())==FALSE){
+ install.packages("arulesViz")
+}
+if("beanplot" %in% rownames(installed.packages())==FALSE){
+ install.packages("beanplot")
+}
+if("car" %in% rownames(installed.packages())==FALSE){
+ install.packages("car")
+}
+if("glmnet" %in% rownames(installed.packages())==FALSE){
+ install.packages("glmnet")
+}
+
+#load the package
+require("mRMRe")
+require("e1071")
+require("discretization")
+require("arules")
+require("arulesViz")
+require("car")
+require(foreign)
+require(ggplot2)
+library(gridExtra)
+library(knitr)
+library(graphics)
+library(glmnet)
+library(tseries)
+library(forecast)
+library(stats)
+
+data_test = read.csv("./test.csv")
+data_train = read.csv("./train.csv")
+data_timeseries = read.csv("./timeSeries.txt")
+```
+
+
+Then the input datasets are seperated to labels and class matrixes. 
+
+An elastic multinomial net was implemented with the use of 'cv.glmnet()' function.
+
+Then, the multinomial deviance against lambda value is plotted. 
+
+```{r   message=FALSE, warning=FALSE}
+
+labels_train = data_train[ ,1:698]
+class_train = data_train[,699]
+
+labels_train = data.matrix(labels_train)
+class_train = data.matrix(class_train)
+# matrix_timeseries = data.matrix(data_timeseries)
+
+labels_test = data_test[ ,1:698]
+class_test = data_test[,699]
+
+labels_test = data.matrix(labels_test)
+class_test = data.matrix(class_test)
+
+cv_fitted = cv.glmnet(labels_train, class_train, family="multinomial")
+#print(cv_fitted)
+plot(cv_fitted, xvar = "Df", label = TRUE)
+title("Multinomial Family Model", line  = 2.5)
+```
+
+## Part A.2 & A.3
+
+I applied the generated model to the test data.
+
+Then, to be able to analyse the performance of this model, I used sst(total sum of squares) and sse(error sum of squares) parameters.
+```{r   message=FALSE, warning=FALSE}
+
+#cv_fitted <- cv_fitted$glmnet.fit
+opt_lambda <- cv_fitted$lambda.min
+
+new_labels = predict.cv.glmnet(cv_fitted, s = opt_lambda, newx=labels_test )
+new_labels = -new_labels[,1,1]
+sst <- sum((class_test - mean(class_test))^2)
+sse <- sum((new_labels - class_test)^2)
+
+
+```
+
+sse value gives important information about the error. Especially, when we consider the value of sst, sse gives much greated numbers. And this shoes that the model is not very succesful. This was expected by me as the number of labels is too great and the number of samples is not that many. So that, we can extract limited information for model from the training data.
+
+If some complicated preprocessing algorithm was used, we could get a better result.
+
+## Part B.1
+
+At the first stage, to be able to get information about the stationarity, I plotted the time series to have an idea and also applied several stationarity tests.
+
+```{r   message=FALSE, warning=FALSE}
+
+series = scan ("./timeSeries.txt")
+seriesTS = ts(series, frequency = 30)
+seriesTS
+plot.ts(seriesTS)
+
+logSeriesTS = log(seriesTS)
+plot.ts(logSeriesTS)
+
+
+# Test for stationarity of original series
+kpss.test(logSeriesTS, null = "Trend")
+adf.test(logSeriesTS, alternative="stationary")
+acf(logSeriesTS, lag.max=20)
+pacf(logSeriesTS, lag.max=20)
+```
+
+
+From the results above and my own intuition, the series does not seem to be stationary.(small p value and saturations in acf and pacf plots) There are several ways to deal with this problem. But I will use removing seasonal effect method and reapplied the same stationarity tests to get better results. 
+
+## Part B.2
+
+
+```{r   message=FALSE, warning=FALSE}
+decompose <- stats::decompose    #EDIT
+
+
+DecomposedTS <- decompose(logSeriesTS,"additive")
+plot(DecomposedTS)
+
+# Remove seasonal effect
+AdjustedLogTS = logSeriesTS - DecomposedTS$seasonal
+plot(AdjustedLogTS)
+
+
+# Test for stationarity of new generated series
+kpss.test(AdjustedLogTS, null = "Trend")
+adf.test(AdjustedLogTS, alternative="stationary")
+acf(AdjustedLogTS, lag.max = 20)
+pacf(AdjustedLogTS, lag.max=20)
+
+```
+
+The same tests and the intuition coming from the time series plot, The modified time series is more likely stationary compared with the previous series.
+
+Then, to fit an additive model upon the time series, I used auto.arima() function. After this, a forecast of 12 samples were created and plotted.
+
+## Part B.3
+
+
+```{r   error =TRUE, message=FALSE, warning=FALSE}
+
+library(forecast)
+SeriesARIMA<-auto.arima(AdjustedLogTS)
+SeriesARIMA
+Box.test(SeriesARIMA$residuals, lag = 12, type = "Ljung-Box")
+ARIMAforecasted <- forecast(SeriesARIMA, h=12)
+plot(ARIMAforecasted)
+```
+
+
+## Part C
+
+```{r   message=FALSE, warning=FALSE}
+
+model1 <- c(0.018, 0.022, 0.455, 0.153, 0.373, 0.555, 0.158, 0.777, 0.308, 0.081, 0.369, 0.816, 0.247, 0.185, 0.312)
+model2 <- c(0.578, 0.99, 0.124, 0.187, 0.39, 0.662, 0.545, 0.734, 0.587, 0.124, 0.864, 0.213, 0.491, 0.961, 0.996)
+
+
+mean(model1)
+mean(model2)
+
+par(mfrow=c(1,2))
+plot.ts(model1, col="orange",ylab="model1  results", ylim=c(0, 1))
+plot.ts(model2, col="blue",ylab="model2 results", ylim=c(0, 1))
+
+wilcox.test(model1, model2, paired=TRUE)
+
+
+
+```
+
+Model 2 performed much better than Model 1 as it has a much higher AUC values for all datasets. 
+
+To compare these two models, Wilcox test is a better solution. Because, t-test gives good results when the data is normally distributed. As our data is not normally distributed, Wilcox gives better intiution.
+
+The p-value of the test is 0.04126, which is less than the significance level alpha = 0.05. We can conclude that model1’s median weight is significantly different from model2’s median weight with a p-value = 0.04126.
+
