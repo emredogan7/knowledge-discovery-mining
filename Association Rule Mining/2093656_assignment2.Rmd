@@ -1,0 +1,396 @@
+---
+title: "2093656_assignment2"
+author: "Emre Dogan"
+date: "4/14/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# IS580, Knowledge, Discovery and Mining-Assignment 2
+
+In this assignment, We were expected to apply dimensionality reduction techniques on a glass identification dataset and extract and evaluate association rules obtained from a banknote authentication dataset.
+
+
+First, the working directory will be set and necessary packages and our data will be included.
+
+```{r  results='hide', message=FALSE, warning=FALSE}
+setwd("/Users/emre/Desktop/Assignment 2")     # set working directory
+
+#check if package is already installed. If not, install the package
+if("mRMRe" %in% rownames(installed.packages())==FALSE){
+ install.packages("mRMRe")
+}
+if("FSelector" %in% rownames(installed.packages())==FALSE){
+ install.packages("FSelector")
+}
+if("discretization" %in% rownames(installed.packages())==FALSE){
+ install.packages("discretization")
+}
+if("arules" %in% rownames(installed.packages())==FALSE){
+ install.packages("arules")
+}
+if("arulesViz" %in% rownames(installed.packages())==FALSE){
+ install.packages("arulesViz")
+}
+if("beanplot" %in% rownames(installed.packages())==FALSE){
+ install.packages("beanplot")
+}
+if("car" %in% rownames(installed.packages())==FALSE){
+ install.packages("car")
+}
+
+
+#load the package
+require("mRMRe")
+require("e1071")
+require("discretization")
+require("arules")
+require("arulesViz")
+require("car")
+require(foreign)
+require(ggplot2)
+library(gridExtra)
+library(knitr)
+
+data_originalA=read.csv("./assignment2_data1.csv")
+data_originalB=read.csv("./assignment2_data2.csv")
+```
+
+# PART A
+
+## A-1. Summarize General Characteristics of the Dataset with Descriptive Statistics
+
+After importing data and packages, we can begin analyzing our data by `summary()` command.
+
+```{r   message=FALSE, warning=FALSE}
+options(knitr.kable.NA = '')
+#summary(data_original)
+kable(summary(data_originalA)) 
+
+```
+
+
+
+
+As it can be seen in the summary, 
+  There are 1 ID attribute to identify the instances.
+  There are 9 numerical attributes to identify the ingredients of the resulting glass.
+  There is one output output class as a decision of glass type.
+  
+
+## A-2. Visualize the distribution of numeric attributes by using beanplots.
+  
+  
+
+```{r   message=FALSE, warning=FALSE}
+beanplot::beanplot(data.frame(data_originalA$RI), 
+                   main = "beanplot of the attribute RI", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Na), 
+                   main = "beanplot of the attribute Na", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Mg), 
+                   main = "beanplot of the attribute Mg", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Al), 
+                   main = "beanplot of the attribute Al", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Si), 
+                   main = "beanplot of the attribute Si", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$K), 
+                   main = "beanplot of the attribute K", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Ca), 
+                   main = "beanplot of the attribute Ca", horizontal = TRUE);
+#beanplot::beanplot(data.frame(data_originalA$Ba), 
+#                   main = "beanplot of the attribute Ba", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalA$Fe), 
+                   main = "beanplot of the attribute Fe", horizontal = TRUE);
+```
+
+From the beanplots, we can result with,
+  -The attributes Mg, K and Fe show a non-Gaussian distribution. They have a distribution along a very long axis and their characteristic is not close to a Gaussian one at all.
+  - The other attributes do not have a perfect normal distribution but with compared to Mg, K and Fe attributes, we can say that their characterisctic is pretty close to a Gaussian distribution.
+  
+## A-3.  Applying principal component analysis (PCA) 
+```{r   message=FALSE, warning=FALSE}
+# Load data
+
+# log transform 
+log.data_originalA <- log(data_originalA[, 2:10])
+nolog.data_originalA <- data_originalA[, 2:10]
+data_originalA.class <- data_originalA[,11]
+
+# apply PCA - scale. = TRUE is highly 
+# advisable, but default is FALSE. 
+data_originalA.pca <- prcomp(nolog.data_originalA, center = TRUE, scale. = TRUE) 
+
+# print method
+print(data_originalA.pca)
+
+# plot method
+plot(data_originalA.pca, type = "l")
+
+# summary method
+summary(data_originalA.pca)
+
+
+```
+
+From the results, we can say that Na, Al, Mg and Ba attributes' importance are higher than others.
+
+
+## A-4. Visualize the relationship between numeric attributes and target variable.
+
+The enhanced scatter plots of all attributes and the the target variable were drawn below.
+
+```{r   message=FALSE, warning=FALSE}
+
+
+scatterplot(Type ~ RI , data=data_originalA, 
+  	xlab="RI", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between RI and the Result")
+
+
+scatterplot(Type ~ Na , data=data_originalA, 
+  	xlab="Na", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Na and the Result")
+
+scatterplot(Type ~ Mg , data=data_originalA, 
+  	xlab="Mg", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Mg and the Result")
+
+scatterplot(Type ~ Al , data=data_originalA, 
+  	xlab="Al", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Al and the Result")
+
+scatterplot(Type ~ Si , data=data_originalA, 
+  	xlab="Si", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Si and the Result")
+
+scatterplot(Type ~ K  , data=data_originalA, 
+  	xlab="K", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between K and the Result")
+
+scatterplot(Type ~ Ca  , data=data_originalA, 
+  	xlab="Ca", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Ca and the Result")
+
+scatterplot(Type ~ Ba  , data=data_originalA, 
+  	xlab="Ba", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Ba and the Result")
+
+scatterplot(Type ~ Fe  , data=data_originalA, 
+  	xlab="Fe", ylab="Class, Type", 
+   main="Scatter Plot of the Relation between Fe and the Result")
+
+
+```
+
+
+
+## A-5. Correlation between attributes
+First, all numeric attributes are brought together so that we can investigate the correlation between them.
+
+```{r   message=FALSE, warning=FALSE}
+options(knitr.kable.NA = '')
+NUM=data.frame(data_originalA[2:11])
+correlation_type = cor(NUM)
+# correlation table
+kable(correlation_type[, 10])
+```
+
+With respect to the correlation values, We can say that the attributes "Na, Al and Ba" are positively correlated with the target attribute. On the other hand, Mg attribute has a highly negative correlation value with the target label. 
+
+All these results are compared with the scatter plots drawn and they can be easily vertified from these plots.
+
+
+## A-6. Find the significance of attributes on target variable by using mRMR.
+
+
+
+```{r   message=FALSE, warning=FALSE}
+
+#mRMR feature selection
+require(mRMRe)
+data(cgps) #load the data 
+
+data_originalA1 <- lapply(data_originalA, as.numeric)
+
+data_mrmre = data.frame(data_originalA1$RI,data_originalA1$Na, data_originalA1$Mg, data_originalA1$Al, data_originalA1$Si, data_originalA1$K, data_originalA1$Ca, data_originalA1$Ba, data_originalA1$Fe, data_originalA1$Type )
+
+feature_data <- mRMR.data(data =  data_mrmre)
+# Create an mRMR filter and obtain the indices of selected features
+filter <- mRMR.classic(data = feature_data, target_indices = 1:9,
+                       feature_count = 2)
+solutions(filter)
+
+```
+
+From the results of mRMRe, we can say that Na, Mg, Al and Ba attributes have a high significance value just like the case in part A-5. All these relations are compared with the results of the beanplots and they verify each other. 
+
+## A-7. Discretize the numeric attributes with mdlp algorithm.
+
+
+```{r   message=FALSE, warning=FALSE}
+
+toBeDiscA = data_originalA[ ,2:11]
+MDLPdiscA=mdlp(toBeDiscA)
+View(MDLPdiscA$Disc.data)
+
+write.csv(MDLPdiscA$Disc.data, file = "2093656_data1transformed.csv") 
+
+```
+
+
+
+
+# PART B 
+
+## B-1. Summarize general characteristics
+
+
+After importing data and packages, we can begin analyzing our data by `summary()` command.
+
+```{r   message=FALSE, warning=FALSE}
+options(knitr.kable.NA = '')
+
+kable(summary(data_originalB)) 
+
+```
+
+
+As it can be seen in the summary, 
+
+  There are 4 numerical attributes to identify.
+  
+  There is one output output class as a decision.
+  
+  
+  
+  
+## B-2. Visualize the distribution of numeric attributes by using beanplots
+  
+
+```{r   message=FALSE, warning=FALSE}
+beanplot::beanplot(data.frame(data_originalB$Variance), 
+                   main = "beanplot of the attribute Variance", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalB$Skewness), 
+                   main = "beanplot of the attribute Skewness", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalB$Kurtosis), 
+                   main = "beanplot of the attribute Kurtosis", horizontal = TRUE);
+beanplot::beanplot(data.frame(data_originalB$Entropy), 
+                   main = "beanplot of the attribute Entropy", horizontal = TRUE);
+
+
+```
+
+From the beanplots, we can result with,
+
+All 4 attributes show a characteristic near to a normal distribution. 
+But the attributes Kurtosis and Entropy show a skewed characteristic.
+
+
+## B-3. Discretize the numeric attributes with mdlp algorithm.
+
+```{r   message=FALSE, warning=FALSE}
+
+MDLPdiscB=mdlp(data_originalB)
+View(MDLPdiscB$Disc.data)
+
+write.csv(MDLPdiscB$Disc.data, file = "2093656_data2transformed.csv") 
+
+```
+
+## B-4. Find the frequent itemsets, maximally frequent itemsets and closed frequent itemsets with apriori algorithm.
+
+```{r   results='hide', message='FALSE', warning=FALSE}
+
+# discretization with Minimum Description Length Principle
+DATA=mdlp(data_originalB)$Disc.data
+
+# attribute type conversion for all columns
+DATA[,names(DATA)] = lapply(DATA[,names(DATA)] , factor)
+
+# APRIORI algorithm
+# find frequent/closed/maximal itemset
+ItemsetF=apriori(DATA, parameter = list(support=0.1, target="frequent"))
+ItemsetC=apriori(DATA, parameter = list(support=0.1, target="closed"))
+ItemsetM=apriori(DATA, parameter = list(support=0.1, target="maximal"))
+
+
+```
+
+```{r   message=FALSE, warning=FALSE}
+
+# summary info: num of rules, frequencies, etc.
+summary(ItemsetF)
+summary(ItemsetC)
+summary(ItemsetM)
+
+```
+  
+
+
+
+## B-5. Extract the association rules from each itemset founded in B.4
+
+```{r   results='hide', message='FALSE', warning=FALSE}
+
+DATA=mdlp(data_originalB)$Disc.data
+
+# attribute type conversion for all columns
+DATA[,names(DATA)] = lapply(DATA[,names(DATA)] , factor)
+
+# "frequent itemsets"," "maximally frequent itemsets" and "closed frequent itemsets" 
+rules_freq <- apriori(DATA, parameter = list(minlen=2, supp=0.1, conf=0.8, 
+              target="frequent itemsets"), 
+              appearance = list(rhs=c("Class=0", "Class=1"), default="lhs"))
+rules_freq.sorted <- sort(rules_freq, by="support")
+inspect(rules_freq.sorted)
+
+rules_closed <- apriori(DATA, parameter = list(minlen=2, supp=0.1, conf=0.8, 
+                        target="closed frequent itemsets"), 
+                        appearance = list(rhs=c("Class=0", "Class=1"), default="lhs"))
+rules_closed.sorted <- sort(rules_closed, by="support")
+inspect(rules_closed.sorted)
+
+rules_maxfreq <- apriori(DATA, parameter = list(minlen=2, supp=0.1, conf=0.8, 
+                        target="maximally frequent itemsets"),
+                        appearance = list(rhs=c("Class=0", "Class=1"), default="lhs"))
+rules_maxfreq.sorted <- sort(rules_maxfreq, by="support")
+inspect(rules_maxfreq.sorted)
+
+```
+
+I found 57 frequent itemsets.
+        27 closed itemsets.
+        6 maximally frequent items.
+
+
+From all the itemsets, {Kurtosis=2, Entropy=1} and {Entropy=1, Class=0} itemsets are the ones with the greatest support and confidence values. 
+
+## B-6. Save all the models
+
+```{r   message=FALSE, warning=FALSE}
+
+write(rules_freq,
+      file = "2093656_Models.Rdata",
+      sep = ",",
+      quote = TRUE,
+      row.names = FALSE,
+      append=T)
+
+write(rules_maxfreq,
+      file = "2093656_Models.Rdata",
+      sep = ",",
+      quote = TRUE,
+      row.names = FALSE,
+      append=T)
+
+ write(rules_closed,
+      file = "2093656_Models.Rdata",
+      sep = ",",
+      quote = TRUE,
+      row.names = FALSE,
+      append=T)
+
+```
+
